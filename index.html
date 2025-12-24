@@ -41,6 +41,110 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             color: white; font-size: 1.2rem; z-index: 20; transition: opacity 0.5s;
         }
+
+        /* --- 音乐按钮样式修改 --- */
+        #music-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            z-index: 50;
+            opacity: 0.8;
+            transition: opacity 0.3s, transform 0.3s;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #music-btn:hover { 
+            opacity: 1.0; 
+            transform: scale(1.1);
+        }
+
+        /* 蓝色亮亮音符的样式 */
+        .music-icon-playing {
+            width: 100%;
+            height: 100%;
+            fill: #88ccff; /* 主色调浅蓝 */
+            /* 双重阴影制造发光感 */
+            filter: drop-shadow(0 0 5px #88ccff) drop-shadow(0 0 15px #0072ff);
+            animation: floatNote 2s ease-in-out infinite;
+        }
+
+        /* 静音图标样式 */
+        .music-icon-muted {
+            width: 80%;
+            height: 80%;
+            fill: #666; /* 灰色 */
+            filter: none;
+        }
+
+        @keyframes floatNote {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* --- 启动遮罩层样式 --- */
+        #start-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            z-index: 9999; /* 确保在最顶层 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1.0s ease-out; /* 淡出动画 */
+        }
+
+        .start-content {
+            text-align: center;
+            color: white;
+            animation: fadeIn 2s ease-in;
+        }
+
+        .start-title {
+            font-size: 2rem;
+            letter-spacing: 5px;
+            margin-bottom: 30px;
+            font-weight: 300;
+            text-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        #start-btn {
+            padding: 12px 40px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.6);
+            color: white;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 30px;
+            transition: all 0.3s ease;
+        }
+
+        #start-btn:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -58,6 +162,23 @@
     </script>
 </head>
 <body>
+    <!-- 启动遮罩层结构 -->
+    <div id="start-screen">
+        <div class="start-content">
+            <div class="start-title">MERRY CHRISTMAS</div>
+            <button id="start-btn">CLICK HERE</button>
+            <p style="margin-top: 15px; font-size: 0.8rem; color: #666;">你需要打开摄像头，伸出手掌跟随指引做手势哦~winky winky~</p>
+        </div>
+    </div>
+
+    <audio id="bgm" loop>
+        <source src="https://cdn.jsdelivr.net/gh/vivianlymm-li/my-image-hosting@main/alliwantfor.mp3">
+    </audio>
+
+    <!-- 音乐按钮 (默认静音 SVG) -->
+    <div id="music-btn">
+        <svg class="music-icon-muted" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </div>
 
     <div id="loading" class="loading">LOADING (camera)...</div>
 
@@ -545,15 +666,18 @@
             const count = 12;
             const radius = 10; 
             
-            // 相框尺寸：3.5 x 4.5
+            // --- [修改重点] 高清配置 ---
+            const RES_SCALE = 4; // 分辨率放大4倍 (300x400 -> 1200x1600)
+            
+            // 相框3D物理尺寸 (保持不变，只改纹理清晰度)
             const frameWidth = 3.5;
             const frameHeight = 4.5;
-            // 照片尺寸：3.2 x 4.2
             const photoWidth = 3.2;
             const photoHeight = 4.2;
 
-            const drawBackground = (ctx, isGolden) => {
-                const grd = ctx.createLinearGradient(0, 0, 300, 400);
+            // 绘制背景的辅助函数 (已适配 RES_SCALE)
+            const drawBackground = (ctx, isGolden, w, h) => {
+                const grd = ctx.createLinearGradient(0, 0, w, h);
                 if (isGolden) {
                     grd.addColorStop(0, '#B78727'); 
                     grd.addColorStop(1, '#F7D674'); 
@@ -562,69 +686,100 @@
                     grd.addColorStop(1, '#0072ff'); 
                 }
                 ctx.fillStyle = grd;
-                ctx.fillRect(0, 0, 300, 400);
+                ctx.fillRect(0, 0, w, h);
             };
 
+            // 创建背面纹理 (祝福语) - 已适配高清
             const createBackTexture = (text, isGolden = false) => {
                 const canvas = document.createElement('canvas');
-                canvas.width = 300; canvas.height = 400;
+                // 放大画布尺寸
+                canvas.width = 300 * RES_SCALE; 
+                canvas.height = 400 * RES_SCALE;
                 const ctx = canvas.getContext('2d');
-                drawBackground(ctx, isGolden);
+                
+                const w = canvas.width;
+                const h = canvas.height;
+                
+                drawBackground(ctx, isGolden, w, h);
                 
                 ctx.strokeStyle = isGolden ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 255, 255, 0.8)";
-                ctx.lineWidth = 15;
-                ctx.strokeRect(10, 10, 280, 380);
+                ctx.lineWidth = 15 * RES_SCALE; // 线条加粗
+                // 绘制边框
+                ctx.strokeRect(10 * RES_SCALE, 10 * RES_SCALE, 280 * RES_SCALE, 380 * RES_SCALE);
                 
                 ctx.fillStyle = isGolden ? "#5C4033" : "white";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.font = "bold 40px Arial";
+                ctx.font = `bold ${40 * RES_SCALE}px Arial`; // 字体放大
+                
                 const words = text.split(' ');
+                // 坐标位置也相应放大
+                const cx = 150 * RES_SCALE; 
+                const cy1 = 180 * RES_SCALE;
+                const cy2 = 230 * RES_SCALE;
+                const cyC = 200 * RES_SCALE;
+
                 if (words.length > 2) {
-                    ctx.fillText(words.slice(0, Math.ceil(words.length/2)).join(' '), 150, 180);
-                    ctx.fillText(words.slice(Math.ceil(words.length/2)).join(' '), 150, 230);
+                    ctx.fillText(words.slice(0, Math.ceil(words.length/2)).join(' '), cx, cy1);
+                    ctx.fillText(words.slice(Math.ceil(words.length/2)).join(' '), cx, cy2);
                 } else {
-                    ctx.fillText(text, 150, 200);
+                    ctx.fillText(text, cx, cyC);
                 }
-                return new THREE.CanvasTexture(canvas);
+                
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                return tex;
             };
 
             const createGoldenBackTexture = (text) => {
                 return createBackTexture(text, true);
             };
 
+            // 绘制占位图 (礼物盒) - 已适配高清
             const drawPlaceholder = (ctx) => {
+                const w = 300 * RES_SCALE;
+                const h = 400 * RES_SCALE;
+
                 ctx.fillStyle = '#C0392B';
-                ctx.fillRect(0, 0, 300, 400); 
+                ctx.fillRect(0, 0, w, h); 
                 
                 ctx.fillStyle = '#F1C40F';
-                ctx.fillRect(135, 0, 30, 400); 
-                ctx.fillRect(0, 185, 300, 30); 
+                // 坐标和尺寸都需要乘以 RES_SCALE
+                ctx.fillRect(135 * RES_SCALE, 0, 30 * RES_SCALE, h); 
+                ctx.fillRect(0, 185 * RES_SCALE, w, 30 * RES_SCALE); 
                 
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 32px Arial';
+                ctx.font = `bold ${32 * RES_SCALE}px Arial`;
                 ctx.textAlign = 'center';
-                ctx.fillText("🎁 GIFT", 150, 120);
-                ctx.font = '20px Arial';
-                ctx.fillText("FOR YOU", 150, 160);
+                ctx.fillText("🎁 GIFT", 150 * RES_SCALE, 120 * RES_SCALE);
+                ctx.font = `${20 * RES_SCALE}px Arial`;
+                ctx.fillText("FOR YOU", 150 * RES_SCALE, 160 * RES_SCALE);
             };
 
+            // 创建正面照片纹理 - 已适配高清
             const createFrontTexture = (imgFilename) => {
                 const canvas = document.createElement('canvas');
-                canvas.width = 300; canvas.height = 400;
+                // 核心：大幅提升画布分辨率
+                canvas.width = 300 * RES_SCALE; 
+                canvas.height = 400 * RES_SCALE;
                 const ctx = canvas.getContext('2d');
                 
+                // 默认黑色背景
                 ctx.fillStyle = "#000";
-                ctx.fillRect(0, 0, 300, 400);
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 const tex = new THREE.CanvasTexture(canvas);
                 const img = new Image();
                 img.crossOrigin = "Anonymous";
                 
                 img.onload = () => {
-                    ctx.drawImage(img, 0, 0, 300, 400);
+                    // 将图片拉伸绘制到高清画布上
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     tex.colorSpace = THREE.SRGBColorSpace; 
                     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+                    // 优化过滤设置，防止远处闪烁
+                    tex.minFilter = THREE.LinearMipMapLinearFilter;
+                    tex.magFilter = THREE.LinearFilter;
                     tex.needsUpdate = true;
                 };
                 
@@ -643,6 +798,7 @@
                 return tex;
             };
 
+            // 下面是创建 Mesh 的逻辑，基本保持不变
             const frameGeometry = new THREE.PlaneGeometry(3.5, 4.5);
             const photoGeometry = new THREE.PlaneGeometry(3.2, 4.2);
 
@@ -683,7 +839,7 @@
                     map: backTex, 
                     color: 0xffffff, 
                     transparent: true,
-                    opacity: 0, // 初始透明，由动画循环控制
+                    opacity: 0, 
                     side: THREE.FrontSide,
                     depthWrite: false
                 });
@@ -729,7 +885,6 @@
                 cardContainer.userData.originQuat = cardContainer.quaternion.clone();
                 
                 const tempLook = cardContainer.clone();
-                // [修改] 终章模式看向的高度，原为10(仰角45度)，改为2(仰角较小，接近直立但微仰)
                 tempLook.lookAt(0, 2, 0); 
                 cardContainer.userData.inwardQuat = tempLook.quaternion.clone();
 
@@ -1238,7 +1393,51 @@
         
         setTimeout(initMediaPipe, 1000);
 
+        // --- 音乐与启动逻辑 (修改版) ---
+        const bgm = document.getElementById('bgm');
+        const musicBtn = document.getElementById('music-btn');
+        const startScreen = document.getElementById('start-screen');
+        const startBtn = document.getElementById('start-btn');
+        let isMusicPlaying = false;
+
+        bgm.volume = 0.4; 
+
+        // SVG 图标数据
+        const playingIcon = `<svg class="music-icon-playing" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>`;
+        const mutedIcon = `<svg class="music-icon-muted" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73 4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>`;
+
+        function toggleMusic() {
+            if (bgm.paused) {
+                bgm.play().then(() => {
+                    isMusicPlaying = true;
+                    // 切换为蓝色亮亮音符 SVG
+                    musicBtn.innerHTML = playingIcon;
+                }).catch(e => console.log("等待交互..."));
+            } else {
+                bgm.pause();
+                isMusicPlaying = false;
+                // 切换为静音 SVG
+                musicBtn.innerHTML = mutedIcon;
+            }
+        }
+
+        musicBtn.addEventListener('click', toggleMusic);
+
+        // 新增：监听启动按钮的点击
+        startBtn.addEventListener('click', () => {
+            // 1. 尝试播放音乐 (因为是在用户点击事件中调用，所以浏览器允许播放)
+            toggleMusic();
+            
+            // 2. 淡出遮罩层
+            startScreen.style.opacity = '0';
+            
+            // 3. 动画结束后移除元素，避免遮挡交互
+            setTimeout(() => {
+                startScreen.style.display = 'none';
+            }, 1000); // 这里的 1000ms 对应 CSS transition 的时间
+        });
+
     </script>
 </body>
-</html>
 
+</html>
