@@ -107,9 +107,9 @@
         ];
 
         const BLESSINGS = [
-            "Merry Christmas", "Happy New Year", "Joy & Peace", "Warm Wishes",
-            "Holiday Cheer", "Season's Greetings", "Magic Moments", "Stay Cozy",
-            "Love & Light", "Best Wishes", "Dreams Come True", "Be Happy"
+            "Peace", "Blessed", "Joyful", "Lucky",
+            "Cheer", "Wonderful", "Healthy", "Cozy",
+            "Love", "Wishes", "Marvelous", "Happy"
         ];
 
         let scene, camera, renderer, composer, controls;
